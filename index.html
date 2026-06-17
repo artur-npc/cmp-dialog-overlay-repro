@@ -135,13 +135,14 @@
       </div>
     </dialog>
 
-    <!-- CMP loader -->
+    <!-- CMP loader (dialogMode) -->
     <script
       id="usercentrics-cmp"
       src="https://app.usercentrics.eu/browser-ui/latest/loader.js"
       data-version="preview"
       data-settings-id="v2XIrITfe"
       data-tcf-enabled
+      data-dialog-mode="1"
       async
     ></script>
 
@@ -159,6 +160,7 @@
           fresh.setAttribute('data-version', 'preview');
           fresh.setAttribute('data-settings-id', SETTINGS_ID);
           fresh.setAttribute('data-tcf-enabled', '');
+          fresh.setAttribute('data-dialog-mode', '1');
           fresh.async = true;
           fresh.src = BUNDLE;
           tag.replaceWith(fresh);
