@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CMP &lt;dialog&gt; top-layer overlay demo</title>
+
+    <!--
+      Demo: a CMP rendered as a native modal <dialog> (dialogMode) lives in the
+      browser top layer. The top layer stacks modal <dialog>s in OPEN ORDER — the
+      LAST showModal() caller is always on top, regardless of z-index. So a site
+      dialog opened via showModal() AFTER the CMP can cover it.
+
+      This page lets you:
+        1. Reproduce the overlay (open a competing modal <dialog> over the CMP).
+        2. Toggle the proposed fix (prototype patch of HTMLDialogElement.showModal)
+           and observe that the CMP stays on top while other dialogs are
+           downgraded to non-modal show().
+
+      Configurable via URL query params:
+        ?settingsId=XXXX   settings id                   (default: TxBnOLo9B — a TCF test config)
+        ?country=DE        forced country code           (default: DE — keeps the CMP shown so it always appears)
+        ?region=           forced region code            (default: empty)
+        ?bundle=URL        CMP bundle URL                (default: latest; point this at a custom build to test
+                                                          a patched bundle)
+        ?fix=1             apply the page-side showModal patch on load
+        ?autoOpen=2000     auto-open the competing modal N ms after load
+    -->
+
+    <script>
+      // ---- read config from query string -------------------------------------------------
+      var params = new URLSearchParams(location.search);
+      var SETTINGS_ID = params.get('settingsId') || 'TxBnOLo9B';
+      var COUNTRY = params.get('country') || 'DE';
+      var REGION = params.get('region') || '';
+      var BUNDLE = params.get('bundle') || 'https://app.usercentrics.eu/browser-ui/latest/bundle.js';
+
+      // ---- force geolocation so the CMP is always shown -----------------------------------
+      // The bundle reads window.UC_UI_USER_COUNTRY_DATA before init and skips the network geo
+      // lookup. Forcing a country guarantees the dialog appears regardless of where the page is
+      // opened from.
+      window.UC_UI_USER_COUNTRY_DATA = { code: COUNTRY, name: COUNTRY, regionCode: REGION };
+    </script>
+
+    <style>
+      :root { color-scheme: light; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        margin: 0; padding: 0; background: #f3f4f6; color: #111827;
+      }
+      header { background: #0b1324; color: #fff; padding: 16px 24px; }
+      header h1 { font-size: 18px; margin: 0 0 4px; }
+      header p { margin: 0; font-size: 13px; opacity: .8; }
+      main { padding: 24px; max-width: 920px; margin: 0 auto; }
+      .panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+      .panel h2 { font-size: 15px; margin: 0 0 12px; }
+      .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+      button {
+        font: inherit; padding: 9px 14px; border-radius: 8px; border: 1px solid #d1d5db;
+        background: #fff; cursor: pointer;
+      }
+      button.primary { background: #b91c1c; color: #fff; border-color: #b91c1c; }
+      button.good { background: #166534; color: #fff; border-color: #166534; }
+      button:disabled { opacity: .5; cursor: not-allowed; }
+      label.toggle { display: inline-flex; gap: 6px; align-items: center; user-select: none; }
+      #status { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap;
+                background: #0b1324; color: #d1fae5; padding: 14px; border-radius: 8px; line-height: 1.5; }
+      .hint { font-size: 12px; color: #6b7280; margin-top: 8px; }
+      code { background: #eef2ff; padding: 1px 5px; border-radius: 4px; }
+
+      /* The competing site dialog. */
+      #competing-dialog {
+        border: none; border-radius: 14px; padding: 0; width: 420px; max-width: 92vw;
+        box-shadow: 0 20px 60px rgba(0,0,0,.35); overflow: hidden;
+      }
+      #competing-dialog::backdrop { background: rgba(0,0,0,.45); }
+      #competing-dialog .promo-body { padding: 28px 24px 24px; text-align: center; }
+      #competing-dialog h3 { margin: 0 0 14px; font-size: 20px; }
+      #competing-dialog .cta { width: 100%; background: #cc0719; color: #fff; border: none; padding: 14px; border-radius: 8px;
+                         font-size: 15px; font-weight: 600; cursor: pointer; }
+      #competing-dialog .close { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 50%;
+                           border: 1px solid #e5e7eb; background: #fff; cursor: pointer; }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <h1>CMP &lt;dialog&gt; top-layer overlay demo</h1>
+      <p>CMP in <code>dialogMode</code> + a competing native modal &lt;dialog&gt;.</p>
+    </header>
+
+    <main>
+      <div class="panel">
+        <h2>1 · Reproduce the overlay</h2>
+        <div class="row">
+          <button id="open-competing" class="primary">Open competing modal (showModal)</button>
+          <button id="show-cmp">Re-show CMP first layer</button>
+          <button id="reload">Reload page</button>
+        </div>
+        <p class="hint">
+          Wait for the consent dialog to appear, then click <b>Open competing modal</b>. Without the fix the
+          competing dialog (red) renders <b>on top of</b> the CMP — that is the issue.
+        </p>
+      </div>
+
+      <div class="panel">
+        <h2>2 · Proposed fix</h2>
+        <div class="row">
+          <label class="toggle">
+            <input type="checkbox" id="fix-toggle" />
+            Apply <code>showModal</code> prototype patch (the fix)
+          </label>
+        </div>
+        <p class="hint">
+          While the CMP is open, every other dialog's <code>showModal()</code> is redirected to non-modal
+          <code>show()</code>, so the CMP keeps the top layer. With the fix on, the competing modal can no longer
+          cover the dialog.
+          <br />⚠️ Trade-off: this downgrades <b>all</b> other modal dialogs on the page while the CMP is open.
+        </p>
+      </div>
+
+      <div class="panel">
+        <h2>Live status</h2>
+        <div id="status">initialising…</div>
+      </div>
+    </main>
+
+    <!-- Competing site dialog -->
+    <dialog id="competing-dialog">
+      <button class="close" id="promo-close" aria-label="Close">×</button>
+      <div class="promo-body">
+        <h3>Competing site dialog</h3>
+        <p>Opened via <code>showModal()</code> after the CMP.</p>
+        <button class="cta">Primary action</button>
+      </div>
+    </dialog>
+
+    <!-- CMP loaded in dialogMode + TCF -->
+    <script
+      id="usercentrics-cmp"
+      data-settings-id="TxBnOLo9B"
+      data-tcf-enabled
+      data-dialog-mode
+      src="https://app.usercentrics.eu/browser-ui/latest/bundle.js"
+      async
+    ></script>
+
+    <script>
+      // The bundle src / settingsId are also driven by query params; rewrite the tag before it executes
+      // is not possible (it is already in the DOM), so we instead set them here for clarity and, if a custom
+      // bundle/settingsId is requested, replace the tag.
+      (function () {
+        var tag = document.getElementById('usercentrics-cmp');
+        var needsReplace =
+          SETTINGS_ID !== 'TxBnOLo9B' || BUNDLE !== 'https://app.usercentrics.eu/browser-ui/latest/bundle.js';
+        if (needsReplace && tag) {
+          var fresh = document.createElement('script');
+          fresh.id = 'usercentrics-cmp';
+          fresh.setAttribute('data-settings-id', SETTINGS_ID);
+          fresh.setAttribute('data-tcf-enabled', '');
+          fresh.setAttribute('data-dialog-mode', '');
+          fresh.async = true;
+          fresh.src = BUNDLE;
+          tag.replaceWith(fresh);
+        }
+      })();
+
+      // ---- the proposed fix: prototype patch applied from the page ----------
+      var originalShowModal = null;
+
+      function applyFix() {
+        if (originalShowModal) return;
+        originalShowModal = HTMLDialogElement.prototype.showModal;
+        HTMLDialogElement.prototype.showModal = function () {
+          var rootNode = this.getRootNode();
+          var host = rootNode instanceof ShadowRoot ? rootNode.host : null;
+          // Allow ONLY the CMP's own dialog (#uc-center-container inside the #usercentrics-root shadow host).
+          var isCmpDialog = this.id === 'uc-center-container' && host && host.id === 'usercentrics-root';
+          if (isCmpDialog) {
+            return originalShowModal.call(this);
+          }
+          // Redirect every other dialog to non-modal => it never enters the top layer above the CMP.
+          return HTMLDialogElement.prototype.show.call(this);
+        };
+        render();
+      }
+
+      function removeFix() {
+        if (!originalShowModal) return;
+        HTMLDialogElement.prototype.showModal = originalShowModal;
+        originalShowModal = null;
+        render();
+      }
+
+      // ---- competing dialog --------------------------------------------------------------
+      var promo = document.getElementById('competing-dialog');
+      function openCompeting() {
+        if (!promo.open) promo.showModal();
+        render();
+      }
+      document.getElementById('promo-close').addEventListener('click', function () {
+        promo.close();
+        render();
+      });
+
+      // ---- wiring ------------------------------------------------------------------------
+      document.getElementById('open-competing').addEventListener('click', openCompeting);
+      document.getElementById('reload').addEventListener('click', function () {
+        location.reload();
+      });
+      document.getElementById('show-cmp').addEventListener('click', function () {
+        if (window.UC_UI && typeof window.UC_UI.showFirstLayer === 'function') window.UC_UI.showFirstLayer();
+      });
+      document.getElementById('fix-toggle').addEventListener('change', function (e) {
+        if (e.target.checked) applyFix();
+        else removeFix();
+      });
+
+      // ---- live status -------------------------------------------------------------------
+      function topLayerOrder() {
+        // Among open modal dialogs, the one painted last (on top) is the LAST that called showModal().
+        var dialogs = Array.prototype.slice.call(document.querySelectorAll('dialog'));
+        var cmpHost = document.getElementById('usercentrics-root');
+        var cmpDialog = cmpHost && cmpHost.shadowRoot ? cmpHost.shadowRoot.querySelector('dialog') : null;
+        if (cmpDialog) dialogs.push(cmpDialog);
+        return dialogs
+          .filter(function (d) {
+            return d.open;
+          })
+          .map(function (d) {
+            var modal = d.matches(':modal');
+            var label = d.id || d.getAttribute('data-testid') || d.tagName.toLowerCase();
+            return '  - ' + label + '  open=' + d.open + '  modal=' + modal;
+          });
+      }
+
+      function render() {
+        var ucReady = !!(window.UC_UI && window.UC_UI.isInitialized && window.UC_UI.isInitialized());
+        var accepted = ucReady && window.UC_UI.areAllConsentsAccepted ? window.UC_UI.areAllConsentsAccepted() : 'n/a';
+        var lines = [
+          'config:',
+          '  settingsId = ' + SETTINGS_ID,
+          '  country    = ' + COUNTRY + (REGION ? ' / ' + REGION : ''),
+          '  bundle     = ' + BUNDLE,
+          '',
+          'fix applied  : ' + (originalShowModal ? 'YES (showModal patched)' : 'no'),
+          'UC_UI ready  : ' + ucReady,
+          'allAccepted  : ' + accepted,
+          '',
+          'open dialogs (last in list = top of stack):',
+        ].concat(topLayerOrder().length ? topLayerOrder() : ['  (none)']);
+        document.getElementById('status').textContent = lines.join('\n');
+      }
+
+      // apply fix immediately if requested
+      if (params.get('fix') === '1') {
+        // wait a tick so the prototype exists / bundle can load
+        applyFix();
+        document.getElementById('fix-toggle').checked = true;
+      }
+
+      // optional auto-open to mimic a site opening its dialog shortly after the CMP
+      var autoOpen = parseInt(params.get('autoOpen') || '0', 10);
+      if (autoOpen > 0) setTimeout(openCompeting, autoOpen);
+
+      // keep status fresh
+      render();
+      setInterval(render, 750);
+    </script>
+  </body>
+</html>
