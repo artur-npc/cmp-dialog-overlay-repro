@@ -30,10 +30,10 @@
     <script>
       // ---- read config from query string -------------------------------------------------
       var params = new URLSearchParams(location.search);
-      var SETTINGS_ID = params.get('settingsId') || 'TxBnOLo9B';
+      var SETTINGS_ID = params.get('settingsId') || 'k9u3jMNqjkODB1';
       var COUNTRY = params.get('country') || 'DE';
       var REGION = params.get('region') || '';
-      var BUNDLE = params.get('bundle') || 'https://app.usercentrics.eu/browser-ui/latest/bundle.js';
+      var BUNDLE = params.get('bundle') || 'https://app.usercentrics.eu/browser-ui/latest/loader.js';
 
       // ---- force geolocation so the CMP is always shown -----------------------------------
       // The bundle reads window.UC_UI_USER_COUNTRY_DATA before init and skips the network geo
@@ -137,12 +137,12 @@
 
     <!-- CMP loaded in dialogMode + TCF -->
     <script
+      src="https://app.usercentrics.eu/browser-ui/latest/loader.js"
       id="usercentrics-cmp"
-      data-settings-id="TxBnOLo9B"
-      data-tcf-enabled
-      data-dialog-mode
-      src="https://app.usercentrics.eu/browser-ui/latest/bundle.js"
-      async
+      data-dialog-mode="1"
+      data-settings-id="k9u3jMNqjkODB1"
+      data-tcf-enabled=""
+      data-avoid-prefetch-services=""
     ></script>
 
     <script>
@@ -152,14 +152,14 @@
       (function () {
         var tag = document.getElementById('usercentrics-cmp');
         var needsReplace =
-          SETTINGS_ID !== 'TxBnOLo9B' || BUNDLE !== 'https://app.usercentrics.eu/browser-ui/latest/bundle.js';
+          SETTINGS_ID !== 'k9u3jMNqjkODB1' || BUNDLE !== 'https://app.usercentrics.eu/browser-ui/latest/loader.js';
         if (needsReplace && tag) {
           var fresh = document.createElement('script');
           fresh.id = 'usercentrics-cmp';
+          fresh.setAttribute('data-dialog-mode', '1');
           fresh.setAttribute('data-settings-id', SETTINGS_ID);
           fresh.setAttribute('data-tcf-enabled', '');
-          fresh.setAttribute('data-dialog-mode', '');
-          fresh.async = true;
+          fresh.setAttribute('data-avoid-prefetch-services', '');
           fresh.src = BUNDLE;
           tag.replaceWith(fresh);
         }

@@ -32,8 +32,8 @@ HTMLDialogElement.prototype.showModal = function () {
 
 | Param | Default | Purpose |
 |---|---|---|
-| `settingsId` | `TxBnOLo9B` | settings id (a TCF test config) |
+| `settingsId` | _(built-in)_ | settings id to load |
 | `country` | `DE` | forced country so the dialog always shows |
-| `bundle` | prod `latest` | bundle URL (point at a custom build to test a patched bundle) |
+| `bundle` | `latest` loader | bundle/loader URL (point at a custom build to test a patched bundle) |
 | `fix` | _(off)_ | `?fix=1` applies the fix on load |
 | `autoOpen` | `0` | `?autoOpen=2000` auto-opens the competing modal after N ms |
