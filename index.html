@@ -30,7 +30,7 @@
     <script>
       // ---- read config from query string -------------------------------------------------
       var params = new URLSearchParams(location.search);
-      var SETTINGS_ID = params.get('settingsId') || 'k9u3jMNqjkODB1';
+      var SETTINGS_ID = params.get('settingsId') || 'v2XIrITfe';
       var COUNTRY = params.get('country') || 'DE';
       var REGION = params.get('region') || '';
       var BUNDLE = params.get('bundle') || 'https://app.usercentrics.eu/browser-ui/latest/loader.js';
@@ -135,14 +135,14 @@
       </div>
     </dialog>
 
-    <!-- CMP loaded in dialogMode + TCF -->
+    <!-- CMP loader -->
     <script
-      src="https://app.usercentrics.eu/browser-ui/latest/loader.js"
       id="usercentrics-cmp"
-      data-dialog-mode="1"
-      data-settings-id="k9u3jMNqjkODB1"
-      data-tcf-enabled=""
-      data-avoid-prefetch-services=""
+      src="https://app.usercentrics.eu/browser-ui/latest/loader.js"
+      data-version="preview"
+      data-settings-id="v2XIrITfe"
+      data-tcf-enabled
+      async
     ></script>
 
     <script>
@@ -152,14 +152,14 @@
       (function () {
         var tag = document.getElementById('usercentrics-cmp');
         var needsReplace =
-          SETTINGS_ID !== 'k9u3jMNqjkODB1' || BUNDLE !== 'https://app.usercentrics.eu/browser-ui/latest/loader.js';
+          SETTINGS_ID !== 'v2XIrITfe' || BUNDLE !== 'https://app.usercentrics.eu/browser-ui/latest/loader.js';
         if (needsReplace && tag) {
           var fresh = document.createElement('script');
           fresh.id = 'usercentrics-cmp';
-          fresh.setAttribute('data-dialog-mode', '1');
+          fresh.setAttribute('data-version', 'preview');
           fresh.setAttribute('data-settings-id', SETTINGS_ID);
           fresh.setAttribute('data-tcf-enabled', '');
-          fresh.setAttribute('data-avoid-prefetch-services', '');
+          fresh.async = true;
           fresh.src = BUNDLE;
           tag.replaceWith(fresh);
         }
