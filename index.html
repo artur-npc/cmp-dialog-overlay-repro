@@ -98,8 +98,10 @@
           <button id="reload">Reload page</button>
         </div>
         <p class="hint">
-          Wait for the consent dialog to appear, then click <b>Open competing modal</b>. Without the fix the
-          competing dialog (red) renders <b>on top of</b> the CMP — that is the issue.
+          <b>Do not accept.</b> The CMP is modal, so the page behind it is inert and the button below cannot be
+          clicked while it is open — a real site opens its dialog programmatically. So the competing modal (red)
+          <b>auto-opens ~2.5s after the CMP appears</b>, on top of it. Without the fix it covers the CMP — that is
+          the issue. (The button is for re-triggering after the CMP closes.)
         </p>
       </div>
 
@@ -261,13 +263,36 @@
         document.getElementById('fix-toggle').checked = true;
       }
 
-      // optional auto-open to mimic a site opening its dialog shortly after the CMP
-      var autoOpen = parseInt(params.get('autoOpen') || '0', 10);
-      if (autoOpen > 0) setTimeout(openCompeting, autoOpen);
+      // Auto-open the competing modal shortly AFTER the CMP dialog appears.
+      // Required because the CMP is modal: while it is open the page behind is inert, so the
+      // competing modal cannot be opened by a user click — a real site opens it programmatically.
+      // Default 2500ms after the CMP shows; ?autoOpen=0 disables, ?autoOpen=N sets the delay.
+      var autoOpenParam = params.get('autoOpen');
+      var autoOpenEnabled = autoOpenParam !== '0';
+      var autoOpenDelay = autoOpenParam ? parseInt(autoOpenParam, 10) : 2500;
+      var autoOpenArmed = false;
 
-      // keep status fresh
-      render();
-      setInterval(render, 750);
+      function getCmpDialog() {
+        var host = document.getElementById('usercentrics-root');
+        return host && host.shadowRoot ? host.shadowRoot.querySelector('dialog') : null;
+      }
+
+      function maybeAutoOpen() {
+        if (!autoOpenEnabled || autoOpenArmed) return;
+        var cmp = getCmpDialog();
+        if (cmp && cmp.open) {
+          autoOpenArmed = true;
+          setTimeout(openCompeting, autoOpenDelay);
+        }
+      }
+
+      // keep status fresh + arm auto-open once the CMP shows
+      function tick() {
+        maybeAutoOpen();
+        render();
+      }
+      tick();
+      setInterval(tick, 500);
     </script>
   </body>
 </html>
